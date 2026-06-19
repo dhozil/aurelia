@@ -2,5 +2,9 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": ".vercel/output",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "rewrites": [
+    { "source": "/api/coingecko/(.*)", "destination": "https://api.coingecko.com/$1" },
+    { "source": "/api/feargreed/(.*)", "destination": "https://api.alternative.me/$1" }
+  ]
 }
