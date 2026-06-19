@@ -1,5 +1,9 @@
-const COINGECKO_BASE = "/api/coingecko/api/v3";
-const FEAR_GREED_BASE = "/api/feargreed";
+const COINGECKO_BASE = import.meta.env.PROD
+  ? "https://api.coingecko.com/api/v3"
+  : "/api/coingecko/api/v3";
+const FEAR_GREED_BASE = import.meta.env.PROD
+  ? "https://api.alternative.me"
+  : "/api/feargreed";
 
 export interface Coin {
   id: string;
