@@ -19,39 +19,39 @@
 
 ---
 
-## 🔮 Apa Itu Aurelia?
+## 🔮 What Is Aurelia?
 
-Blockchain menyimpan miliaran data — wallet, smart contract, token, NFT, governance, validator, staking, bridge, DeFi. Tapi data itu sulit dipahami.
+Blockchain holds billions of data points — wallets, smart contracts, tokens, NFTs, governance, validators, staking, bridges, DeFi. But that data is hard to understand.
 
-**Aurelia mengubah data blockchain menjadi percakapan manusia.**
+**Aurelia turns blockchain data into human conversation.**
 
-Daripada buka explorer, dashboard, dan analytics tool berbeda, cukup tanya:
+Instead of jumping between explorers, dashboards, and analytics tools, just ask:
 
 ```
-💬 "Apa yang terjadi pada wallet saya minggu ini?"
-💬 "Apakah token ini aman?"
-💬 "Jelaskan kontrak ini."
-💬 "Apa itu GenLayer?"
+💬 "What happened to my wallet this week?"
+💬 "Is this token safe?"
+💬 "Explain this contract."
+💬 "What is GenLayer?"
 ```
 
-Aurelia akan menjawab — ditenagai **GenLayer AI Consensus** yang memverifikasi setiap jawaban oleh jaringan validator.
+Aurelia answers — powered by **GenLayer AI Consensus**, where every response is verified by a network of validators.
 
 ---
 
-## ✨ Fitur
+## ✨ Features
 
-| Fitur | Deskripsi |
-|-------|-----------|
-| 👛 **Wallet Intelligence** | Analisis portfolio, PnL, aktivitas wallet |
-| 🛡️ **Token Risk Analyzer** | Cek keamanan token: honeypot, mint, blacklist, liquidity |
-| 📄 **Smart Contract Translator** | Terjemahkan kode kontrak ke bahasa manusia |
-| 🚨 **Scam Detector** | Deteksi scam berdasarkan contract, website, wallet |
-| 📈 **AI DeFi Advisor** | Rekomendasi staking/yield berdasarkan APR, TVL, risiko |
-| 🗳️ **Governance Interpreter** | Ringkas dan jelaskan proposal governance |
-| 💼 **Portfolio AI** | Analisis portfolio score, diversifikasi, risiko |
-| 🔬 **Blockchain Research** | Bandingkan blockchain/metrik secara on-chain |
-| 💾 **On-Chain Memory** | Simpan hasil analisis di blockchain untuk query berulang |
-| 🤖 **Ask Anything** | Tanya apa pun tentang blockchain — BTC, ETH, DeFi, NFT, dll |
+| Feature | Description |
+|---------|-------------|
+| 👛 **Wallet Intelligence** | Portfolio analysis, PnL, wallet activity |
+| 🛡️ **Token Risk Analyzer** | Check token safety: honeypot, mint, blacklist, liquidity |
+| 📄 **Smart Contract Translator** | Translate contract code to plain English |
+| 🚨 **Scam Detector** | Detect scams by contract, website, wallet |
+| 📈 **AI DeFi Advisor** | Staking/yield recommendations by APR, TVL, risk |
+| 🗳️ **Governance Interpreter** | Summarize and explain governance proposals |
+| 💼 **Portfolio AI** | Portfolio score, diversification, risk analysis |
+| 🔬 **Blockchain Research** | Compare blockchains and on-chain metrics |
+| 💾 **On-Chain Memory** | Store analysis results on-chain for repeat queries |
+| 🤖 **Ask Anything** | Ask any blockchain question — BTC, ETH, DeFi, NFT, etc |
 
 ---
 
@@ -120,7 +120,7 @@ Aurelia akan menjawab — ditenagai **GenLayer AI Consensus** yang memverifikasi
 ### Install & Run
 
 ```bash
-git clone https://github.com/your-repo/aurelia.git
+git clone https://github.com/dhozil/aurelia.git
 cd aurelia
 npm install
 npm run dev
@@ -175,18 +175,18 @@ aurelia/
 
 | Method | Type | Description |
 |--------|------|-------------|
-| `analyze_token(contract_address)` | write | Analisis keamanan token |
-| `analyze_wallet(address, balance?)` | write | Analisis wallet portfolio |
-| `translate_contract(code)` | write | Terjemahkan kode kontrak |
-| `detect_scam(contract, website)` | write | Deteksi scam |
-| `defi_advisor(query)` | write | Advisory DeFi yield |
-| `interpret_governance(proposal)` | write | Interpretasi governance |
-| `analyze_portfolio(address)` | write | Analisis portfolio |
-| `research_comparison(query)` | write | Perbandingan blockchain |
-| `ask_genlayer(query)` | write | Tanya apa pun tentang blockchain |
-| `get_analysis(key)` | view | Ambil hasil analisis |
-| `get_request_count()` | view | Total request |
-| `get_request(req_id)` | view | Detail request by ID |
+| `analyze_token(contract_address)` | write | Token safety analysis |
+| `analyze_wallet(address, balance?)` | write | Wallet portfolio analysis |
+| `translate_contract(code)` | write | Translate contract to plain language |
+| `detect_scam(contract, website)` | write | Scam detection |
+| `defi_advisor(query)` | write | DeFi yield advisory |
+| `interpret_governance(proposal)` | write | Governance interpretation |
+| `analyze_portfolio(address)` | write | Portfolio analysis |
+| `research_comparison(query)` | write | Blockchain comparison |
+| `ask_genlayer(query)` | write | Ask anything about blockchain |
+| `get_analysis(key)` | view | Get stored analysis result |
+| `get_request_count()` | view | Total request count |
+| `get_request(req_id)` | view | Request details by ID |
 
 ---
 
