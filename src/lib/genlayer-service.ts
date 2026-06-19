@@ -44,19 +44,27 @@ async function ensureCorrectNetwork() {
 
 // ── GenLayer Client ──────────────────────────────────────────────────────────
 
+let _writeClient: any = null;
+let _writeClientAddress: string = "";
+let _readClient: any = null;
+
 async function getClient(walletAddress: string) {
+  if (_writeClient && _writeClientAddress === walletAddress) return _writeClient;
   const eth = getMetaMask();
   const client = createClient({
     chain: testnetBradbury,
     account: walletAddress as `0x${string}`,
     provider: eth || undefined,
   });
-  await client.connect("testnetBradbury");
+  _writeClient = client;
+  _writeClientAddress = walletAddress;
   return client;
 }
 
 function getReadClient() {
-  return createClient({ chain: testnetBradbury });
+  if (_readClient) return _readClient;
+  _readClient = createClient({ chain: testnetBradbury });
+  return _readClient;
 }
 
 // ── Contract Read/Write ──────────────────────────────────────────────────────
@@ -419,8 +427,7 @@ export async function sendToGenLayer(
     if (!analysisKey) {
       const prefix = keyPrefix[analysisType];
       if (prefix) {
-        if (!_readClient) _readClient = getReadClient();
-        const count = await readContractFn(_readClient, "get_request_count", []);
+        const count = await readContractFn(getReadClient(), "get_request_count", []);
         const n = Number(count);
         analysisKey = `${prefix}_${n - 1}`;
       }
@@ -453,8 +460,6 @@ type PollUnsubscribe = () => void;
  * Polls get_analysis(address) every 3 seconds.
  * Detects new data by checking analyzed_at timestamp.
  */
-let _readClient: any = null;
-
 export function subscribeToAnalysis(
   address: string,
   callback: PollCallback<any>,
@@ -467,8 +472,7 @@ export function subscribeToAnalysis(
   const poll = async () => {
     if (!active) return;
     try {
-      if (!_readClient) _readClient = getReadClient();
-      const raw = await readContractFn(_readClient, "get_analysis", [address]);
+      const raw = await readContractFn(getReadClient(), "get_analysis", [address]);
       if (!raw || !active) return;
 
       const str = typeof raw === "string" ? raw : JSON.stringify(raw);
