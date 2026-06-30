@@ -692,7 +692,7 @@ export default function AureliaApp() {
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                {address && (
+                {address && !snapRejected && (
                   <span className="hidden items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1.5 text-xs text-amber-300 ring-1 ring-amber-400/30 md:inline-flex">
                     <Wallet className="h-3.5 w-3.5" />
                     {short}
