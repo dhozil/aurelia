@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 type EthProvider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -13,7 +13,7 @@ declare global {
   }
 }
 
-const BRADBURY_CHAIN_ID = "0x107d"; // 4221 in hex
+const BRADBURY_CHAIN_ID = "0x107d";
 const BRADBURY_NETWORK = {
   chainId: BRADBURY_CHAIN_ID,
   chainName: "GenLayer Bradbury",
@@ -28,6 +28,19 @@ export function useMetaMask() {
   const [error, setError] = useState<string | null>(null);
   const [chainId, setChainId] = useState<string | null>(null);
   const [isBradbury, setIsBradbury] = useState(false);
+  const [showSnapWarning, setShowSnapWarning] = useState(false);
+
+  // Check if wallet supports wallet_getSnaps (MetaMask with Snap support)
+  const checkSnapSupport = useCallback(async () => {
+    const eth = window.ethereum;
+    if (!eth) return;
+    try {
+      await eth.request({ method: "wallet_getSnaps" });
+      setShowSnapWarning(false);
+    } catch {
+      setShowSnapWarning(true);
+    }
+  }, []);
 
   useEffect(() => {
     const eth = window.ethereum;
@@ -83,7 +96,9 @@ export function useMetaMask() {
       const accs = (await eth.request({ method: "eth_requestAccounts" })) as string[];
       setAddress(accs?.[0] ?? null);
 
-      // Check and switch to Bradbury if needed
+      // Detect Snap support immediately after connecting
+      await checkSnapSupport();
+
       const currentChainId = (await eth.request({ method: "eth_chainId" })) as string;
       if (currentChainId !== BRADBURY_CHAIN_ID) {
         await switchToBradbury();
@@ -105,7 +120,6 @@ export function useMetaMask() {
         params: [{ chainId: BRADBURY_CHAIN_ID }],
       });
     } catch (switchError: unknown) {
-      // Chain not added, add it
       if ((switchError as { code?: number }).code === 4902) {
         try {
           await eth.request({
@@ -123,7 +137,12 @@ export function useMetaMask() {
     }
   };
 
-  const disconnect = () => setAddress(null);
+  const disconnect = () => {
+    setAddress(null);
+    setShowSnapWarning(false);
+  };
+
+  const dismissSnapWarning = () => setShowSnapWarning(false);
   const short = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "";
 
   return {
@@ -136,5 +155,7 @@ export function useMetaMask() {
     chainId,
     isBradbury,
     switchToBradbury,
+    showSnapWarning,
+    dismissSnapWarning,
   };
 }

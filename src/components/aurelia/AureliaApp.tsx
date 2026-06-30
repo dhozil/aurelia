@@ -48,6 +48,15 @@ import {
   DocsView,
 } from "./views";
 import { saveChat } from "@/lib/storage";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 const todayChats: { id: ViewId; icon: typeof ShieldCheck; label: string }[] = [
   { id: "token-safety", icon: ShieldCheck, label: "Analyze Token Safety" },
@@ -322,8 +331,17 @@ export default function AureliaApp() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [chatInput, setChatInput] = useState("");
-  const { address, short, connect, disconnect, connecting, isBradbury, switchToBradbury } =
-    useMetaMask();
+  const {
+    address,
+    short,
+    connect,
+    disconnect,
+    connecting,
+    isBradbury,
+    switchToBradbury,
+    showSnapWarning,
+    dismissSnapWarning,
+  } = useMetaMask();
   const {
     marketData,
     topCoins,
@@ -873,6 +891,45 @@ export default function AureliaApp() {
           />
         )}
       </div>
+
+      {/* Snap warning dialog for non-MetaMask wallets */}
+      <AlertDialog open={showSnapWarning} onOpenChange={dismissSnapWarning}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-lg">
+              <span className="text-2xl">🦊</span> MetaMask Required
+            </AlertDialogTitle>
+            <AlertDialogDescription className="mt-3 space-y-2 text-sm leading-relaxed">
+              <p>
+                Aurelia requires <strong>MetaMask</strong> with the <strong>GenLayer Snap</strong> to
+                interact with the GenLayer network.
+              </p>
+              <p>
+                The wallet you're using doesn't support <code>wallet_getSnaps</code>, which is needed
+                for GenLayer integration.
+              </p>
+              <div className="mt-3 rounded-lg bg-amber-500/10 p-3 text-xs ring-1 ring-amber-500/30">
+                <strong>Tip:</strong> Install MetaMask, then click "Connect MetaMask" to get started.
+                The GenLayer Snap will install automatically on your first transaction.
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 sm:flex-col">
+            <AlertDialogAction
+              onClick={() => window.open("https://metamask.io/download/", "_blank")}
+              className="w-full cursor-pointer"
+            >
+              Download MetaMask
+            </AlertDialogAction>
+            <button
+              onClick={dismissSnapWarning}
+              className="w-full rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground ring-1 ring-white/10 hover:bg-white/5"
+            >
+              I'll switch later
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
