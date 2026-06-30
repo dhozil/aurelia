@@ -29,6 +29,7 @@ export function useMetaMask() {
   const [chainId, setChainId] = useState<string | null>(null);
   const [isBradbury, setIsBradbury] = useState(false);
   const [showSnapWarning, setShowSnapWarning] = useState(false);
+  const [snapRejected, setSnapRejected] = useState(false);
 
   // Check if wallet supports wallet_getSnaps (MetaMask with Snap support)
   const checkSnapSupport = useCallback(async () => {
@@ -36,7 +37,6 @@ export function useMetaMask() {
     if (!eth) return;
     try {
       await eth.request({ method: "wallet_getSnaps" });
-      setShowSnapWarning(false);
     } catch {
       setShowSnapWarning(true);
     }
@@ -131,8 +131,7 @@ export function useMetaMask() {
           console.error(addError);
         }
       } else {
-        setError("Failed to switch to Bradbury network");
-        console.error(switchError);
+        // Wallet doesn't recognize this chain (e.g. Rabby) — silently ignore
       }
     }
   };
@@ -140,9 +139,13 @@ export function useMetaMask() {
   const disconnect = () => {
     setAddress(null);
     setShowSnapWarning(false);
+    setSnapRejected(false);
   };
 
-  const dismissSnapWarning = () => setShowSnapWarning(false);
+  const dismissSnapWarning = () => {
+    setShowSnapWarning(false);
+    setSnapRejected(true);
+  };
   const short = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "";
 
   return {
@@ -157,5 +160,6 @@ export function useMetaMask() {
     switchToBradbury,
     showSnapWarning,
     dismissSnapWarning,
+    snapRejected,
   };
 }

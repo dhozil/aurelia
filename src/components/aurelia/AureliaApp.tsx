@@ -53,7 +53,6 @@ import {
   AlertDialogContent,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
@@ -341,6 +340,7 @@ export default function AureliaApp() {
     switchToBradbury,
     showSnapWarning,
     dismissSnapWarning,
+    snapRejected,
   } = useMetaMask();
   const {
     marketData,
@@ -618,8 +618,8 @@ export default function AureliaApp() {
             </div>
           </nav>
 
-          {/* Wallet / Profile */}
-          {address && !showSnapWarning ? (
+          {/* Wallet / Profile — only show if Snap is supported */}
+          {address && !snapRejected ? (
             <div className="mt-3 rounded-xl bg-white/5 p-2.5 ring-1 ring-white/10">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2.5">
@@ -907,21 +907,21 @@ export default function AureliaApp() {
             <AlertDialogTitle className="flex items-center gap-2 text-lg">
               <span className="text-2xl">🦊</span> MetaMask Required
             </AlertDialogTitle>
-            <AlertDialogDescription className="mt-3 space-y-2 text-sm leading-relaxed">
-              <p>
-                Aurelia requires <strong>MetaMask</strong> with the <strong>GenLayer Snap</strong> to
-                interact with the GenLayer network.
-              </p>
-              <p>
-                The wallet you're using doesn't support <code>wallet_getSnaps</code>, which is needed
-                for GenLayer integration.
-              </p>
-              <div className="mt-3 rounded-lg bg-amber-500/10 p-3 text-xs ring-1 ring-amber-500/30">
-                <strong>Tip:</strong> Install MetaMask, then click "Connect MetaMask" to get started.
-                The GenLayer Snap will install automatically on your first transaction.
-              </div>
-            </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-3 px-6 text-sm leading-relaxed text-muted-foreground">
+            <div>
+              Aurelia requires <strong>MetaMask</strong> with the <strong>GenLayer Snap</strong> to
+              interact with the GenLayer network.
+            </div>
+            <div>
+              The wallet you're using doesn't support <code>wallet_getSnaps</code>, which is needed
+              for GenLayer integration.
+            </div>
+            <div className="rounded-lg bg-amber-500/10 p-3 text-xs ring-1 ring-amber-500/30">
+              <strong>Tip:</strong> Install MetaMask, then click "Connect MetaMask" to get started.
+              The GenLayer Snap will install automatically on your first transaction.
+            </div>
+          </div>
           <AlertDialogFooter className="flex-row gap-2 sm:flex-col">
             <AlertDialogAction
               onClick={() => window.open("https://metamask.io/download/", "_blank")}
