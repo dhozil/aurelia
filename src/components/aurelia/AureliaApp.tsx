@@ -619,7 +619,7 @@ export default function AureliaApp() {
           </nav>
 
           {/* Wallet / Profile */}
-          {address ? (
+          {address && !showSnapWarning ? (
             <div className="mt-3 rounded-xl bg-white/5 p-2.5 ring-1 ring-white/10">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2.5">
@@ -699,12 +699,20 @@ export default function AureliaApp() {
                   </span>
                 )}
                 <div
-                  className={`hidden items-center gap-2 rounded-full px-3 py-1.5 text-xs ring-1 sm:flex ${isBradbury ? "bg-success/15 text-success ring-success/30" : "bg-amber-500/15 text-amber-300 ring-amber-400/30"}`}
+                  className={`hidden items-center gap-2 rounded-full px-3 py-1.5 text-xs ring-1 sm:flex ${
+                    isBradbury
+                      ? "bg-success/15 text-success ring-success/30"
+                      : showSnapWarning
+                        ? "bg-red-500/15 text-red-400 ring-red-500/30"
+                        : "bg-amber-500/15 text-amber-300 ring-amber-400/30"
+                  }`}
                 >
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${isBradbury ? "bg-success" : "bg-amber-400"}`}
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      isBradbury ? "bg-success" : showSnapWarning ? "bg-red-400" : "bg-amber-400"
+                    }`}
                   />
-                  {isBradbury ? "Bradbury" : "Not Connected"}
+                  {isBradbury ? "Bradbury" : showSnapWarning ? "MetaMask Required" : "Connect Wallet"}
                 </div>
                 <button className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/5">
                   <Maximize2 className="h-4 w-4" />
