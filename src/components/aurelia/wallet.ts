@@ -29,15 +29,18 @@ export function useMetaMask() {
   const [chainId, setChainId] = useState<string | null>(null);
   const [isBradbury, setIsBradbury] = useState(false);
   const [showSnapWarning, setShowSnapWarning] = useState(false);
-  const [snapRejected, setSnapRejected] = useState(false);
+  const [snapSupported, setSnapSupported] = useState<boolean | null>(null);
 
-  // Check if wallet supports wallet_getSnaps (MetaMask with Snap support)
-  const checkSnapSupport = useCallback(async () => {
+  // Detect Snap support
+  const detectSnap = useCallback(async () => {
     const eth = window.ethereum;
     if (!eth) return;
     try {
       await eth.request({ method: "wallet_getSnaps" });
+      setSnapSupported(true);
+      setShowSnapWarning(false);
     } catch {
+      setSnapSupported(false);
       setShowSnapWarning(true);
     }
   }, []);
@@ -63,9 +66,14 @@ export function useMetaMask() {
       })
       .catch(() => {});
 
+    // Auto-detect Snap on mount
+    detectSnap();
+
     const handleAccounts = (...args: unknown[]) => {
       const accs = args[0] as string[];
       setAddress(accs?.[0] ?? null);
+      // Re-check Snap when account changes (wallet might have changed)
+      detectSnap();
     };
 
     const handleChain = (...args: unknown[]) => {
@@ -81,7 +89,7 @@ export function useMetaMask() {
       eth.removeListener?.("accountsChanged", handleAccounts);
       eth.removeListener?.("chainChanged", handleChain);
     };
-  }, []);
+  }, [detectSnap]);
 
   const connect = async () => {
     setError(null);
@@ -96,8 +104,8 @@ export function useMetaMask() {
       const accs = (await eth.request({ method: "eth_requestAccounts" })) as string[];
       setAddress(accs?.[0] ?? null);
 
-      // Detect Snap support immediately after connecting
-      await checkSnapSupport();
+      // Detect Snap support
+      await detectSnap();
 
       const currentChainId = (await eth.request({ method: "eth_chainId" })) as string;
       if (currentChainId !== BRADBURY_CHAIN_ID) {
@@ -130,8 +138,6 @@ export function useMetaMask() {
           setError("Failed to add Bradbury network");
           console.error(addError);
         }
-      } else {
-        // Wallet doesn't recognize this chain (e.g. Rabby) — silently ignore
       }
     }
   };
@@ -139,13 +145,12 @@ export function useMetaMask() {
   const disconnect = () => {
     setAddress(null);
     setShowSnapWarning(false);
-    setSnapRejected(false);
   };
 
   const dismissSnapWarning = () => {
     setShowSnapWarning(false);
-    setSnapRejected(true);
   };
+
   const short = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "";
 
   return {
@@ -160,6 +165,6 @@ export function useMetaMask() {
     switchToBradbury,
     showSnapWarning,
     dismissSnapWarning,
-    snapRejected,
+    snapSupported,
   };
 }

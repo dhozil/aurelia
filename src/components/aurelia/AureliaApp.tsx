@@ -340,7 +340,7 @@ export default function AureliaApp() {
     switchToBradbury,
     showSnapWarning,
     dismissSnapWarning,
-    snapRejected,
+    snapSupported,
   } = useMetaMask();
   const {
     marketData,
@@ -619,7 +619,7 @@ export default function AureliaApp() {
           </nav>
 
           {/* Wallet / Profile — only show if Snap is supported */}
-          {address && !snapRejected ? (
+          {address && snapSupported ? (
             <div className="mt-3 rounded-xl bg-white/5 p-2.5 ring-1 ring-white/10">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2.5">
@@ -692,7 +692,7 @@ export default function AureliaApp() {
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                {address && !snapRejected && (
+                {address && snapSupported && (
                   <span className="hidden items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1.5 text-xs text-amber-300 ring-1 ring-amber-400/30 md:inline-flex">
                     <Wallet className="h-3.5 w-3.5" />
                     {short}
@@ -702,17 +702,17 @@ export default function AureliaApp() {
                   className={`hidden items-center gap-2 rounded-full px-3 py-1.5 text-xs ring-1 sm:flex ${
                     isBradbury
                       ? "bg-success/15 text-success ring-success/30"
-                      : showSnapWarning
+                      : snapSupported === false
                         ? "bg-red-500/15 text-red-400 ring-red-500/30"
                         : "bg-amber-500/15 text-amber-300 ring-amber-400/30"
                   }`}
                 >
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${
-                      isBradbury ? "bg-success" : showSnapWarning ? "bg-red-400" : "bg-amber-400"
+                      isBradbury ? "bg-success" : snapSupported === false ? "bg-red-400" : "bg-amber-400"
                     }`}
                   />
-                  {isBradbury ? "Bradbury" : showSnapWarning ? "MetaMask Required" : "Connect Wallet"}
+                  {isBradbury ? "Bradbury" : snapSupported === false ? "MetaMask Required" : "Connect Wallet"}
                 </div>
                 <button className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/5">
                   <Maximize2 className="h-4 w-4" />
