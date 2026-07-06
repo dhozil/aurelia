@@ -1,15 +1,12 @@
-import { useEffect, useState, useCallback } from "react";
-
-type EthProvider = {
-  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-  on?: (event: string, handler: (...args: unknown[]) => void) => void;
-  removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
-  isMetaMask?: boolean;
-};
+import { useEffect, useState } from "react";
 
 declare global {
   interface Window {
-    ethereum?: EthProvider;
+    ethereum?: {
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      on?: (event: string, handler: (...args: unknown[]) => void) => void;
+      removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
+    };
   }
 }
 
@@ -22,32 +19,32 @@ const BRADBURY_NETWORK = {
   blockExplorerUrls: ["https://explorer-bradbury.genlayer.com"],
 };
 
-export function useMetaMask() {
+export function useWallet() {
   const [address, setAddress] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chainId, setChainId] = useState<string | null>(null);
   const [isBradbury, setIsBradbury] = useState(false);
-  const [showSnapWarning, setShowSnapWarning] = useState(false);
-  const [snapSupported, setSnapSupported] = useState<boolean | null>(null);
+  const [walletLabel, setWalletLabel] = useState<string>("EVM Wallet");
 
-  // Detect Snap support
-  const detectSnap = useCallback(async () => {
-    const eth = window.ethereum;
-    if (!eth) return;
-    try {
-      await eth.request({ method: "wallet_getSnaps" });
-      setSnapSupported(true);
-      setShowSnapWarning(false);
-    } catch {
-      setSnapSupported(false);
-      setShowSnapWarning(true);
-    }
-  }, []);
+  // Detect wallet name
+  const detectWallet = () => {
+    const eth = window.ethereum as any;
+    if (!eth) return "EVM Wallet";
+    if (eth.isMetaMask) return "MetaMask";
+    if (eth.isRabby) return "Rabby";
+    if (eth.isCoinbaseWallet) return "Coinbase Wallet";
+    if (eth.isTrust) return "Trust Wallet";
+    if (eth.isBraveWallet) return "Brave Wallet";
+    if (eth.isOKXWallet) return "OKX Wallet";
+    return "EVM Wallet";
+  };
 
   useEffect(() => {
     const eth = window.ethereum;
     if (!eth) return;
+
+    setWalletLabel(detectWallet());
 
     eth
       .request({ method: "eth_accounts" })
@@ -66,14 +63,11 @@ export function useMetaMask() {
       })
       .catch(() => {});
 
-    // Auto-detect Snap on mount
-    detectSnap();
-
     const handleAccounts = (...args: unknown[]) => {
       const accs = args[0] as string[];
       setAddress(accs?.[0] ?? null);
-      // Re-check Snap when account changes (wallet might have changed)
-      detectSnap();
+      // Re-detect wallet when account changes (wallet might have changed)
+      setWalletLabel(detectWallet());
     };
 
     const handleChain = (...args: unknown[]) => {
@@ -89,23 +83,21 @@ export function useMetaMask() {
       eth.removeListener?.("accountsChanged", handleAccounts);
       eth.removeListener?.("chainChanged", handleChain);
     };
-  }, [detectSnap]);
+  }, []);
 
   const connect = async () => {
     setError(null);
     const eth = window.ethereum;
     if (!eth) {
-      setError("MetaMask not installed");
+      setError("No EVM wallet detected");
       window.open("https://metamask.io/download/", "_blank");
       return;
     }
     try {
       setConnecting(true);
+      setWalletLabel(detectWallet());
       const accs = (await eth.request({ method: "eth_requestAccounts" })) as string[];
       setAddress(accs?.[0] ?? null);
-
-      // Detect Snap support
-      await detectSnap();
 
       const currentChainId = (await eth.request({ method: "eth_chainId" })) as string;
       if (currentChainId !== BRADBURY_CHAIN_ID) {
@@ -144,11 +136,6 @@ export function useMetaMask() {
 
   const disconnect = () => {
     setAddress(null);
-    setShowSnapWarning(false);
-  };
-
-  const dismissSnapWarning = () => {
-    setShowSnapWarning(false);
   };
 
   const short = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "";
@@ -163,8 +150,6 @@ export function useMetaMask() {
     chainId,
     isBradbury,
     switchToBradbury,
-    showSnapWarning,
-    dismissSnapWarning,
-    snapSupported,
+    walletLabel,
   };
 }

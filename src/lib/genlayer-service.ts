@@ -4,15 +4,15 @@ import { testnetBradbury } from "genlayer-js/chains";
 const DEPLOYED_CONTRACT_ADDRESS = "0x5598809D8B2D103B9488525a624D496918C0D0c4";
 const EXPLORER_URL = "https://explorer-bradbury.genlayer.com";
 
-// ── MetaMask ─────────────────────────────────────────────────────────────────
+// ── Wallet Provider ──────────────────────────────────────────────────────────
 
-function getMetaMask() {
+function getProvider() {
   return (window as any).ethereum || null;
 }
 
 async function ensureCorrectNetwork() {
-  const eth = getMetaMask();
-  if (!eth) throw new Error("MetaMask not installed");
+  const eth = getProvider();
+  if (!eth) throw new Error("No EVM wallet detected");
 
   const chainIdHex = await eth.request({ method: "eth_chainId" });
   if (chainIdHex?.toLowerCase() !== "0x107d") {
@@ -50,7 +50,7 @@ let _readClient: any = null;
 
 async function getClient(walletAddress: string) {
   if (_writeClient && _writeClientAddress === walletAddress) return _writeClient;
-  const eth = getMetaMask();
+  const eth = getProvider();
   const client = createClient({
     chain: testnetBradbury,
     account: walletAddress as `0x${string}`,
@@ -309,7 +309,7 @@ function detectAnalysisType(query: string): AnalysisType {
 
 async function fetchWalletBalance(walletAddress: string): Promise<string> {
   try {
-    const eth = getMetaMask();
+    const eth = getProvider();
     if (!eth) return "";
     const balanceHex = await eth.request({
       method: "eth_getBalance",
@@ -443,7 +443,7 @@ export async function sendToGenLayer(
   } catch (error) {
     console.error("[Aurelia] GenLayer error:", error);
     return {
-      response: `**Error connecting to GenLayer**\n\n${error instanceof Error ? error.message : "Unknown error"}\n\n**Troubleshooting:**\n1. Make sure your wallet is connected to Bradbury network\n2. Check if you have GEN tokens for gas\n3. Verify contract address: ${contractAddress}\n\n**Network Config:**\n- Chain: testnetBradbury\n- Chain ID: 4221\n\n*Falling back to demo mode*`,
+      response: `**Error connecting to GenLayer**\n\n${error instanceof Error ? error.message : "Unknown error"}\n\n**Troubleshooting:**\n1. Connect your EVM wallet (MetaMask, Rabby, etc.) to Bradbury network\n2. Check if you have GEN tokens for gas\n3. Verify contract address: ${contractAddress}\n\n**Network Config:**\n- Chain: testnetBradbury\n- Chain ID: 4221\n\n*Falling back to demo mode*`,
       txHash: "",
       analysisKey: "",
     };

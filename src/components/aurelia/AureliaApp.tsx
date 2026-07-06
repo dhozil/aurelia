@@ -27,7 +27,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import aureliaImg from "@/assets/aurelia.jpg";
-import { useMetaMask } from "./wallet";
+import { useWallet } from "./wallet";
+import { WalletSelectionModal } from "./WalletSelectionModal";
 import { useAllMarketData } from "@/hooks/use-crypto-data";
 import { formatPrice, formatMarketCap, formatPercentage } from "@/lib/crypto-api";
 import { sendToGenLayer, subscribeToAnalysis, type ChatMessage } from "@/lib/genlayer-service";
@@ -48,14 +49,6 @@ import {
   DocsView,
 } from "./views";
 import { saveChat } from "@/lib/storage";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogFooter,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
 
 const todayChats: { id: ViewId; icon: typeof ShieldCheck; label: string }[] = [
   { id: "token-safety", icon: ShieldCheck, label: "Analyze Token Safety" },
@@ -330,6 +323,7 @@ export default function AureliaApp() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [chatInput, setChatInput] = useState("");
+  const [showWalletModal, setShowWalletModal] = useState(false);
   const {
     address,
     short,
@@ -338,10 +332,8 @@ export default function AureliaApp() {
     connecting,
     isBradbury,
     switchToBradbury,
-    showSnapWarning,
-    dismissSnapWarning,
-    snapSupported,
-  } = useMetaMask();
+    walletLabel,
+  } = useWallet();
   const {
     marketData,
     topCoins,
@@ -618,15 +610,15 @@ export default function AureliaApp() {
             </div>
           </nav>
 
-          {/* Wallet / Profile — only show if Snap is supported */}
-          {address && snapSupported ? (
+          {/* Wallet / Profile */}
+          {address ? (
             <div className="mt-3 rounded-xl bg-white/5 p-2.5 ring-1 ring-white/10">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <div className="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-primary to-purple-500 ring-2 ring-primary/50" />
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold">{short}</div>
-                    <div className="text-[10px] text-gold">MetaMask</div>
+                    <div className="text-[10px] text-gold">{walletLabel}</div>
                   </div>
                 </div>
                 <button
@@ -640,11 +632,10 @@ export default function AureliaApp() {
             </div>
           ) : (
             <button
-              onClick={connect}
-              disabled={connecting}
+              onClick={() => setShowWalletModal(true)}
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500/90 to-orange-500/90 px-3 py-2.5 text-sm font-semibold text-black ring-1 ring-amber-400/40 transition hover:brightness-110 disabled:opacity-60"
             >
-              <Wallet className="h-4 w-4" /> {connecting ? "Connecting…" : "Connect MetaMask"}
+              <Wallet className="h-4 w-4" /> Connect Wallet
             </button>
           )}
         </aside>
@@ -692,7 +683,7 @@ export default function AureliaApp() {
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                {address && snapSupported && (
+                {address && (
                   <span className="hidden items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1.5 text-xs text-amber-300 ring-1 ring-amber-400/30 md:inline-flex">
                     <Wallet className="h-3.5 w-3.5" />
                     {short}
@@ -702,17 +693,17 @@ export default function AureliaApp() {
                   className={`hidden items-center gap-2 rounded-full px-3 py-1.5 text-xs ring-1 sm:flex ${
                     isBradbury
                       ? "bg-success/15 text-success ring-success/30"
-                      : snapSupported === false
+                      : address
                         ? "bg-red-500/15 text-red-400 ring-red-500/30"
                         : "bg-amber-500/15 text-amber-300 ring-amber-400/30"
                   }`}
                 >
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${
-                      isBradbury ? "bg-success" : snapSupported === false ? "bg-red-400" : "bg-amber-400"
+                      isBradbury ? "bg-success" : address ? "bg-red-400" : "bg-amber-400"
                     }`}
                   />
-                  {isBradbury ? "Bradbury" : snapSupported === false ? "MetaMask Required" : "Connect Wallet"}
+                  {isBradbury ? "Bradbury" : address ? "Wrong Network" : "Connect Wallet"}
                 </div>
                 <button className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/5">
                   <Maximize2 className="h-4 w-4" />
@@ -803,7 +794,7 @@ export default function AureliaApp() {
         <aside className="hidden w-[280px] shrink-0 flex-col gap-3 overflow-y-auto p-2 2xl:flex">
           {/* Total Market Cap */}
           <Panel title="Total Market Cap">
-            {loading ? (
+            {marketLoading ? (
               <LoadingSpinner />
             ) : marketData ? (
               <div className="flex items-baseline gap-2">
@@ -823,7 +814,7 @@ export default function AureliaApp() {
 
           {/* Top Coins */}
           <Panel title="Trending Tokens">
-            {loading ? (
+            {marketLoading ? (
               <LoadingSpinner />
             ) : topCoins.length > 0 ? (
               <ul className="space-y-2.5 text-sm">
@@ -854,7 +845,7 @@ export default function AureliaApp() {
 
           {/* Fear & Greed Index */}
           <Panel title="Fear & Greed Index">
-            {loading ? (
+            {marketLoading ? (
               <LoadingSpinner />
             ) : fearGreed ? (
               <Gauge value={parseInt(fearGreed.value)} label={fearGreed.value_classification} />
@@ -865,7 +856,7 @@ export default function AureliaApp() {
 
           {/* Top Gainers */}
           <Panel title="Top Gainers">
-            {loading ? (
+            {marketLoading ? (
               <LoadingSpinner />
             ) : topGainers.length > 0 ? (
               <ul className="space-y-2.5 text-sm">
@@ -900,44 +891,13 @@ export default function AureliaApp() {
         )}
       </div>
 
-      {/* Snap warning dialog for non-MetaMask wallets */}
-      <AlertDialog open={showSnapWarning} onOpenChange={dismissSnapWarning}>
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-lg">
-              <span className="text-2xl">🦊</span> MetaMask Required
-            </AlertDialogTitle>
-          </AlertDialogHeader>
-          <div className="space-y-3 px-6 text-sm leading-relaxed text-muted-foreground">
-            <div>
-              Aurelia requires <strong>MetaMask</strong> with the <strong>GenLayer Snap</strong> to
-              interact with the GenLayer network.
-            </div>
-            <div>
-              The wallet you're using doesn't support <code>wallet_getSnaps</code>, which is needed
-              for GenLayer integration.
-            </div>
-            <div className="rounded-lg bg-amber-500/10 p-3 text-xs ring-1 ring-amber-500/30">
-              <strong>Tip:</strong> Install MetaMask, then click "Connect MetaMask" to get started.
-              The GenLayer Snap will install automatically on your first transaction.
-            </div>
-          </div>
-          <AlertDialogFooter className="flex-row gap-2 sm:flex-col">
-            <AlertDialogAction
-              onClick={() => window.open("https://metamask.io/download/", "_blank")}
-              className="w-full cursor-pointer"
-            >
-              Download MetaMask
-            </AlertDialogAction>
-            <button
-              onClick={dismissSnapWarning}
-              className="w-full rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground ring-1 ring-white/10 hover:bg-white/5"
-            >
-              I'll switch later
-            </button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <WalletSelectionModal
+        open={showWalletModal}
+        onOpenChange={setShowWalletModal}
+        onConnect={connect}
+        connecting={connecting}
+      />
+
     </div>
   );
 }
