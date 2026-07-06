@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/assets/aurelia.jpg" alt="Aurelia" width="120" style="border-radius: 24px" />
+  <img src="public/favicon.svg" alt="Aurelia" width="48" />
 </p>
 
 <h1 align="center">AURELIA</h1>
