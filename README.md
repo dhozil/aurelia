@@ -1,5 +1,17 @@
 <p align="center">
-  <img src="public/favicon.svg" alt="Aurelia" width="48" />
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="48" height="48">
+    <defs>
+      <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#f5d27a"/>
+        <stop offset="50%" stop-color="#c89236"/>
+        <stop offset="100%" stop-color="#f5d27a"/>
+      </linearGradient>
+    </defs>
+    <circle cx="50" cy="50" r="48" fill="#0a0a0a" stroke="url(#g)" stroke-width="2"/>
+    <path d="M50 15 L58 40 L85 45 L65 65 L70 90 L50 75 L30 90 L35 65 L15 45 L42 40 Z" fill="url(#g)"/>
+    <circle cx="50" cy="50" r="12" fill="#0a0a0a"/>
+    <circle cx="50" cy="50" r="6" fill="url(#g)"/>
+  </svg>
 </p>
 
 <h1 align="center">AURELIA</h1>
