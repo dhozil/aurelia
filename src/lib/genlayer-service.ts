@@ -86,9 +86,25 @@ async function readContractFn(client: any, functionName: string, args: any[] = [
  */
 function extractResultFromReceipt(receipt: any): string | undefined {
   try {
+    // The GenLayer RPC returns a flat transaction-like object (no consensus_data).
+    // eqBlocksOutputs contains the result as hex-encoded text.
+    
     const candidates: any[] = [];
 
-    // Check ALL leader_receipts (TX with rotation has multiple)
+    // eqBlocksOutputs: hex-encoded output data containing the answer text
+    const eq = receipt?.eqBlocksOutputs;
+    if (eq && typeof eq === "string" && eq.startsWith("0x") && eq.length > 10) {
+      const decoded = decodeHexToText(eq);
+      if (decoded && decoded.length > 5) return decoded;
+    }
+
+    // Try GenLayer-specific fields
+    for (const field of ["txData", "txExecutionResult", "result", "txCalldata", "execution_result", "genvm_result", "output", "return_value"]) {
+      const val = receipt?.[field];
+      if (val !== undefined && val !== null) candidates.push(val);
+    }
+
+    // Also check inside consensus_data if it exists (for future compatibility)
     const receipts: any[] = receipt?.consensus_data?.leader_receipt ?? [];
     for (const r of receipts) {
       for (const field of ["execution_result", "genvm_result", "result"]) {
@@ -97,23 +113,47 @@ function extractResultFromReceipt(receipt: any): string | undefined {
       }
     }
 
-    // Top-level execution_result
-    const execResult = receipt?.execution_result;
-    if (execResult !== undefined && execResult !== null) {
-      candidates.push(execResult);
-    }
-
-    // Top-level result
-    const topResult = receipt?.result;
-    if (topResult !== undefined && topResult !== null) {
-      candidates.push(topResult);
-    }
-
     for (const val of candidates) {
       const str = tryStringifyResult(val);
       if (str && str.length > 2) return str;
     }
 
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Decode hex-encoded eqBlocksOutputs to text — find answer content */
+function decodeHexToText(hex: string): string | undefined {
+  try {
+    const raw = hex.startsWith("0x") ? hex.slice(2) : hex;
+    const bytes: number[] = [];
+    for (let i = 0; i < raw.length; i += 2) {
+      bytes.push(parseInt(raw.substring(i, i + 2), 16));
+    }
+    // Decode as Latin-1 (byte-by-byte, no multi-byte issues)
+    let fullText = "";
+    for (const b of bytes) {
+      fullText += String.fromCharCode(b);
+    }
+    // Find the first line with substantial content (skip binary header)
+    // Input format: [binary header]answer[sep][text]\n[tags...]
+    const clean = fullText.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "");
+    // Find "answer" keyword and take everything after it + separator byte(s)
+    const answerIdx = clean.indexOf("answer");
+    if (answerIdx >= 0) {
+      let after = clean.slice(answerIdx + 6); // skip "answer"
+      // Remove leading non-alphanumeric separator chars
+      after = after.replace(/^[^a-zA-Z0-9]+/, "");
+      if (after.length > 10) return after;
+    }
+    // Fallback: return first substantial line
+    const lines = clean.split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.length >= 20) return trimmed;
+    }
     return undefined;
   } catch {
     return undefined;
@@ -132,8 +172,11 @@ function tryStringifyResult(val: any): string | undefined {
     return undefined;
   }
 
-  // String (includes hex-encoded ABI from RPC — skip hex, use raw)
+  // String
   if (typeof val === "string") {
+    // Skip hex-encoded internal data (0x...) — not the return value
+    // Contract returns json.dumps(result) which starts with { or [
+    if (val.startsWith("0x")) return undefined;
     return val;
   }
 
@@ -147,83 +190,78 @@ async function waitForTxAcceptance(
   maxRetries = 30,
   interval = 10000,
 ): Promise<{ status: string; receipt?: any; directResult?: string }> {
-  // SDK's waitForTransactionReceipt returns early for any "decided state".
-  // UNDETERMINED/VALIDATORS_TIMEOUT = leader DID execute, result is in receipt.
-  // We extract the leader's execution_result directly instead of polling.
   const ACCEPTED = new Set(["ACCEPTED", "FINALIZED"]);
   const HAS_RESULT = new Set(["UNDETERMINED", "VALIDATORS_TIMEOUT"]);
+  const TERMINAL = new Set(["ACCEPTED", "FINALIZED", "UNDETERMINED", "VALIDATORS_TIMEOUT", "CANCELED"]);
 
-  let receipt: any;
-  let status: string;
-  try {
-    receipt = await client.waitForTransactionReceipt({
-      hash: txHash,
-      retries: 10,
-      interval,
-      fullTransaction: true,
-    });
-    status = receipt.statusName || "";
-  } catch {
-    status = "PENDING";
-  }
-
-  // Terminal success — normal contract storage, use analysisKey polling
-  if (ACCEPTED.has(status)) {
-    console.log(`[Aurelia] TX ACCEPTED: ${txHash}`);
-    return { status, receipt };
-  }
-
-  // Leader executed but validators disagreed/timed out — extract result from receipt
-  if (HAS_RESULT.has(status)) {
-    const directResult = extractResultFromReceipt(receipt);
-    if (!directResult) {
-      // Debug: log receipt keys to understand structure
-      const topKeys = Object.keys(receipt || {}).slice(0, 20);
-      const lr = (receipt?.consensus_data?.leader_receipt ?? []).map((r: any, i: number) =>
-        `${i}:${Object.keys(r).join(",")}`,
-      );
-      console.warn(`[Aurelia] TX ${status} — missing result. receipt keys: ${topKeys.join(",")}. leader_receipt: ${lr.join(" | ")}`);
-    } else {
-      console.log(`[Aurelia] TX ${status} — has direct result — ${txHash}`);
+  // Helper: extract result from receipt, fall back to fetching fresh receipt
+  const extractWithReceipt = async (status: string): Promise<{ status: string; receipt?: any; directResult?: string }> => {
+    try {
+      const r = await client.waitForTransactionReceipt({
+        hash: txHash,
+        retries: 1,
+        interval: 2000,
+        fullTransaction: true,
+      });
+      const d = extractResultFromReceipt(r);
+      if (d) {
+        console.log(`[Aurelia] TX ${status} — receipt has direct result — ${txHash}`);
+      } else {
+        // Log candidate field values to find the return value
+        for (const f of ["txExecutionResult", "txData", "result", "txCalldata", "execution_result", "genvm_result"]) {
+          const v = r?.[f];
+          if (v !== undefined && v !== null) {
+            const s = typeof v === "object" ? JSON.stringify(v).slice(0, 200) : String(v).slice(0, 200);
+            console.warn(`[Aurelia]   ${f}: ${s}`);
+          }
+        }
+        // Also check eqBlocksOutputs and messages
+        if (r?.eqBlocksOutputs) console.warn(`[Aurelia]   eqBlocksOutputs: ${JSON.stringify(r.eqBlocksOutputs).slice(0, 200)}`);
+      }
+      return { status, receipt: r, directResult: d };
+    } catch {
+      console.warn(`[Aurelia] TX ${status} — receipt fetch failed — ${txHash}`);
+      return { status };
     }
-    return { status, receipt, directResult };
+  };
+
+  // Use getTransaction for status (SDK parses it correctly to status name string).
+  // waitForTransactionReceipt has issues with numeric status from RPC.
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  // Quick poll: try a few fast checks first
+  for (let i = 0; i < 5; i++) {
+    try {
+      const tx = await client.getTransaction({ hash: txHash });
+      const s = String(tx.statusName || tx.status || "");
+      if (TERMINAL.has(s)) {
+        if (HAS_RESULT.has(s)) return await extractWithReceipt(s);
+        console.log(`[Aurelia] TX ${s}: ${txHash}`);
+        return { status: s };
+      }
+    } catch {}
+    await sleep(2000);
   }
 
-  // PENDING or other transient — poll for a terminal state.
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  // Full polling loop
   for (let i = 0; i < maxRetries; i++) {
     await sleep(interval);
     try {
       const tx = await client.getTransaction({ hash: txHash });
-      const s = tx.statusName || String(tx.status);
-      if (ACCEPTED.has(s)) {
-        console.log(`[Aurelia] TX now ${s}: ${txHash}`);
-        return { status: s, receipt: tx };
+      const s = String(tx.statusName || tx.status || "");
+      if (s === "CANCELED") throw new Error(`Transaction ${txHash} was canceled`);
+      if (TERMINAL.has(s)) {
+        if (HAS_RESULT.has(s)) return await extractWithReceipt(s);
+        console.log(`[Aurelia] TX ${s}: ${txHash}`);
+        return { status: s };
       }
-      if (HAS_RESULT.has(s)) {
-        const directResult = extractResultFromReceipt(tx);
-        if (!directResult) {
-          const topKeys = Object.keys(tx || {}).slice(0, 20);
-          const lr = (tx?.consensus_data?.leader_receipt ?? []).map((r: any, i: number) =>
-            `${i}:${Object.keys(r).join(",")}`,
-          );
-          console.warn(`[Aurelia] TX now ${s} — missing result. keys: ${topKeys.join(",")}. leader_receipt: ${lr.join(" | ")}`);
-        } else {
-          console.log(`[Aurelia] TX now ${s} — has direct result — ${txHash}`);
-        }
-        return { status: s, receipt: tx, directResult };
-      }
-      if (s === "CANCELED") {
-        throw new Error(`Transaction ${txHash} was canceled`);
-      }
-      status = s;
     } catch (e: any) {
       if (e.message?.includes("canceled")) throw e;
       console.warn(`[Aurelia] TX poll error: ${e.message}`);
     }
   }
-  console.warn(`[Aurelia] TX ${txHash} final status: ${status} — proceeding anyway`);
-  return { status, receipt, directResult: extractResultFromReceipt(receipt) };
+  console.warn(`[Aurelia] TX ${txHash} final status: polling exhausted — proceeding anyway`);
+  return { status: "TIMEOUT" };
 }
 
 async function writeContractFn(
