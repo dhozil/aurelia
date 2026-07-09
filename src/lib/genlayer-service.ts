@@ -80,28 +80,29 @@ async function readContractFn(client: any, functionName: string, args: any[] = [
 
 /**
  * Extract the contract function return value from a TX receipt.
- * For UNDETERMINED TX the leader's execution result is still available
- * in consensus_data.leader_receipt[0].execution_result.
+ * For UNDETERMINED/VALIDATORS_TIMEOUT the leader's execution result is still
+ * available in consensus_data.leader_receipt[0].execution_result.
  * Contract functions return json.dumps(result) — a JSON string.
  */
 function extractResultFromReceipt(receipt: any): string | undefined {
   try {
-    // 1. Leader's execution result (works for UNDETERMINED — leader executed even if validators disagreed)
+    const candidates: any[] = [];
+
+    // Candidate 1: leader's execution result (works for UNDETERMINED/VALIDATORS_TIMEOUT)
     const leaderResult =
       receipt?.consensus_data?.leader_receipt?.[0]?.execution_result;
     if (leaderResult !== undefined && leaderResult !== null) {
-      const str = Array.isArray(leaderResult)
-        ? String(leaderResult[0] ?? "")
-        : String(leaderResult);
-      if (str && str.length > 2) return str;
+      candidates.push(leaderResult);
     }
 
-    // 2. Top-level execution_result (for ACCEPTED/FINALIZED when available)
+    // Candidate 2: top-level execution_result
     const execResult = receipt?.execution_result;
     if (execResult !== undefined && execResult !== null) {
-      const str = Array.isArray(execResult)
-        ? String(execResult[0] ?? "")
-        : String(execResult);
+      candidates.push(execResult);
+    }
+
+    for (const val of candidates) {
+      const str = tryStringifyResult(val);
       if (str && str.length > 2) return str;
     }
 
@@ -109,6 +110,27 @@ function extractResultFromReceipt(receipt: any): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+function tryStringifyResult(val: any): string | undefined {
+  // Object (parsed dict) — JSON.stringify back
+  if (typeof val === "object" && val !== null && !Array.isArray(val)) {
+    return JSON.stringify(val);
+  }
+
+  // Array — take first element, recurse
+  if (Array.isArray(val)) {
+    if (val.length > 0) return tryStringifyResult(val[0]);
+    return undefined;
+  }
+
+  // String (includes hex-encoded ABI from RPC — skip hex, use raw)
+  if (typeof val === "string") {
+    return val;
+  }
+
+  // Number, boolean etc.
+  return String(val);
 }
 
 async function waitForTxAcceptance(
