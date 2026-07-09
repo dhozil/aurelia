@@ -124,7 +124,7 @@ function extractResultFromReceipt(receipt: any): string | undefined {
   }
 }
 
-/** Decode hex-encoded eqBlocksOutputs to text — find answer content */
+/** Decode hex-encoded eqBlocksOutputs to answer text */
 function decodeHexToText(hex: string): string | undefined {
   try {
     const raw = hex.startsWith("0x") ? hex.slice(2) : hex;
@@ -132,21 +132,26 @@ function decodeHexToText(hex: string): string | undefined {
     for (let i = 0; i < raw.length; i += 2) {
       bytes.push(parseInt(raw.substring(i, i + 2), 16));
     }
-    // Decode as Latin-1 (byte-by-byte, no multi-byte issues)
     let fullText = "";
     for (const b of bytes) {
       fullText += String.fromCharCode(b);
     }
-    // Find the first line with substantial content (skip binary header)
-    // Input format: [binary header]answer[sep][text]\n[tags...]
     const clean = fullText.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "");
-    // Find "answer" keyword and take everything after it + separator byte(s)
+    // Find "answer" keyword, take text up to the next tag (confidence/topics/summary)
     const answerIdx = clean.indexOf("answer");
     if (answerIdx >= 0) {
-      let after = clean.slice(answerIdx + 6); // skip "answer"
+      let after = clean.slice(answerIdx + 6);
       // Remove leading non-alphanumeric separator chars
       after = after.replace(/^[^a-zA-Z0-9]+/, "");
-      if (after.length > 10) return after;
+      // Find first tag after answer and stop there
+      const stopTags = ["\nconfidence", "confidence", "Confidence", "topics", "Topics", "summary", "Summary"];
+      let end = after.length;
+      for (const tag of stopTags) {
+        const idx = after.indexOf(tag);
+        if (idx > 10 && idx < end) end = idx;
+      }
+      const answer = after.slice(0, end).trim();
+      if (answer.length > 10) return answer;
     }
     // Fallback: return first substantial line
     const lines = clean.split("\n");
