@@ -528,11 +528,16 @@ class AureliaOracle(gl.Contract):
         key = "chat_" + str(self.request_counter)
 
         def build_prompt() -> str:
+            now = gl.message_raw.get("datetime", "current date unknown")
             return (
                 f"You are Aurelia, an AI Oracle specialized in blockchain and cryptocurrency. "
-                f"Answer this question thoroughly and accurately:\n\n"
+                f"Current date and time: {now}\n\n"
+                f"CRITICAL: Always use the current date above as your reference point. "
+                f"NEVER say 'as of my last knowledge update' or 'I cannot provide real-time data'. "
+                f"Analyze the following question based on the current date:\n\n"
                 f"{query}\n\n"
-                f"Provide factual, detailed information. If unsure, say so honestly.\n"
+                f"Provide factual, detailed information. If the answer involves prices or market data, "
+                f"provide the most recent information available and note the analysis date.\n"
                 f"Return ONLY valid JSON:\n"
                 f'{{"answer":"<detailed answer>",'
                 f'"topics":["<topic1>","<topic2>"],'
