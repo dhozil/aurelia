@@ -375,11 +375,20 @@ export default function AureliaApp() {
       const result = await sendToGenLayer(content, address || undefined);
 
       if (!result.analysisKey) {
-        // Demo mode — result already in response
+        // Demo mode OR UNDETERMINED with direct result
         setMessages((prev) => {
+          let content = result.response;
+          if (content) {
+            try {
+              const parsed = JSON.parse(content);
+              content = formatResultObj(parsed);
+            } catch {
+              // Already a string — use as-is
+            }
+          }
           const updated = prev.map((msg, i) =>
             i === prev.length - 1
-              ? { ...msg, content: result.response, loading: false, txHash: result.txHash }
+              ? { ...msg, content, loading: false, txHash: result.txHash }
               : msg,
           );
           saveChat(updated);

@@ -73,6 +73,14 @@ function useAnalysisSubmit(type: string) {
     try {
       const txResult = await sendToGenLayer(query, walletAddress);
       if (!txResult.analysisKey) {
+        if (txResult.response) {
+          try {
+            const parsed = JSON.parse(txResult.response);
+            setParsed(parsed);
+          } catch {
+            setParsed({ summary: txResult.response });
+          }
+        }
         setAnalyzing(false);
         return;
       }
@@ -525,6 +533,14 @@ export function WalletReviewView({ walletAddress }: { walletAddress?: string }) 
         walletAddress,
       );
       if (!txResult.analysisKey) {
+        if (txResult.response) {
+          try {
+            const parsed = JSON.parse(txResult.response);
+            setParsed(parsed);
+          } catch {
+            setParsed({ summary: txResult.response });
+          }
+        }
         setAnalyzing(false);
         return;
       }

@@ -78,40 +78,93 @@ async function readContractFn(client: any, functionName: string, args: any[] = [
   return mapContractResult(result);
 }
 
+/**
+ * Extract the contract function return value from a TX receipt.
+ * For UNDETERMINED TX the leader's execution result is still available
+ * in consensus_data.leader_receipt[0].execution_result.
+ * Contract functions return json.dumps(result) — a JSON string.
+ */
+function extractResultFromReceipt(receipt: any): string | undefined {
+  try {
+    // 1. Leader's execution result (works for UNDETERMINED — leader executed even if validators disagreed)
+    const leaderResult =
+      receipt?.consensus_data?.leader_receipt?.[0]?.execution_result;
+    if (leaderResult !== undefined && leaderResult !== null) {
+      const str = Array.isArray(leaderResult)
+        ? String(leaderResult[0] ?? "")
+        : String(leaderResult);
+      if (str && str.length > 2) return str;
+    }
+
+    // 2. Top-level execution_result (for ACCEPTED/FINALIZED when available)
+    const execResult = receipt?.execution_result;
+    if (execResult !== undefined && execResult !== null) {
+      const str = Array.isArray(execResult)
+        ? String(execResult[0] ?? "")
+        : String(execResult);
+      if (str && str.length > 2) return str;
+    }
+
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function waitForTxAcceptance(
   client: any,
   txHash: string,
-  maxRetries = 60,
+  maxRetries = 30,
   interval = 10000,
-): Promise<void> {
-  // SDK's waitForTransactionReceipt treats VALIDATORS_TIMEOUT/UNDETERMINED
-  // as "decided states" and returns early — but the TX may still progress to ACCEPTED.
-  // We use it as a first fast check, then fall back to our own polling.
+): Promise<{ status: string; receipt?: any; directResult?: string }> {
+  // SDK's waitForTransactionReceipt returns early for any "decided state".
+  // UNDETERMINED/VALIDATORS_TIMEOUT = leader DID execute, result is in receipt.
+  // We extract the leader's execution_result directly instead of polling.
+  const ACCEPTED = new Set(["ACCEPTED", "FINALIZED"]);
+  const HAS_RESULT = new Set(["UNDETERMINED", "VALIDATORS_TIMEOUT"]);
+
+  let receipt: any;
   let status: string;
   try {
-    const receipt = await client.waitForTransactionReceipt({
+    receipt = await client.waitForTransactionReceipt({
       hash: txHash,
       retries: 10,
       interval,
+      fullTransaction: true,
     });
     status = receipt.statusName || "";
   } catch {
     status = "PENDING";
   }
 
-  if (status === "ACCEPTED" || status === "FINALIZED") return;
+  // Terminal success — normal contract storage, use analysisKey polling
+  if (ACCEPTED.has(status)) {
+    console.log(`[Aurelia] TX ACCEPTED: ${txHash}`);
+    return { status, receipt };
+  }
 
-  // TX hit a timeout state — it may still be processing.
-  // Poll getTransaction directly until true ACCEPTED/FINALIZED.
+  // Leader executed but validators disagreed/timed out — extract result from receipt
+  if (HAS_RESULT.has(status)) {
+    const directResult = extractResultFromReceipt(receipt);
+    console.log(`[Aurelia] TX ${status} — ${directResult ? "has direct result" : "no direct result"} — ${txHash}`);
+    return { status, receipt, directResult };
+  }
+
+  // PENDING or other transient — poll for a terminal state.
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   for (let i = 0; i < maxRetries; i++) {
     await sleep(interval);
     try {
       const tx = await client.getTransaction({ hash: txHash });
       const s = tx.statusName || String(tx.status);
-      if (s === "ACCEPTED" || s === "FINALIZED") {
+      if (ACCEPTED.has(s)) {
         console.log(`[Aurelia] TX now ${s}: ${txHash}`);
-        return;
+        return { status: s, receipt: tx };
+      }
+      if (HAS_RESULT.has(s)) {
+        const directResult = extractResultFromReceipt(tx);
+        console.log(`[Aurelia] TX now ${s} — ${directResult ? "has direct result" : "no direct result"} — ${txHash}`);
+        return { status: s, receipt: tx, directResult };
       }
       if (s === "CANCELED") {
         throw new Error(`Transaction ${txHash} was canceled`);
@@ -122,16 +175,15 @@ async function waitForTxAcceptance(
       console.warn(`[Aurelia] TX poll error: ${e.message}`);
     }
   }
-  throw new Error(
-    `Timed out waiting for ${txHash} to reach ACCEPTED (last status: ${status})`,
-  );
+  console.warn(`[Aurelia] TX ${txHash} final status: ${status} — proceeding anyway`);
+  return { status, receipt, directResult: extractResultFromReceipt(receipt) };
 }
 
 async function writeContractFn(
   client: any,
   functionName: string,
   args: any[] = [],
-): Promise<string> {
+): Promise<{ txHash: string; directResult?: string }> {
   console.log(
     `[Aurelia] writeContract: ${functionName}(${JSON.stringify(args).substring(0, 100)})`,
   );
@@ -147,9 +199,9 @@ async function writeContractFn(
   console.log(`[Aurelia] TX submitted: ${txHash}`);
   console.log(`[Aurelia] Explorer: ${EXPLORER_URL}/tx/${txHash}`);
 
-  await waitForTxAcceptance(client, txHash);
-  console.log(`[Aurelia] TX accepted: ${txHash}`);
-  return txHash;
+  const { status, directResult } = await waitForTxAcceptance(client, txHash);
+  console.log(`[Aurelia] TX status: ${status} — ${txHash}`);
+  return { txHash, directResult };
 }
 
 // ── Result Normalization ─────────────────────────────────────────────────────
@@ -465,7 +517,17 @@ export async function sendToGenLayer(
 
     // Fire TX — MetaMask popup for signature
     console.log("[Aurelia] Sending writeContract TX...");
-    const txHash = await writeContractFn(client, functionName, args);
+    const { txHash, directResult } = await writeContractFn(client, functionName, args);
+
+    // UNDETERMINED TX — validators disagreed but result is in the receipt
+    if (directResult) {
+      console.log(`[Aurelia] Using direct result from TX receipt`);
+      return {
+        response: directResult,
+        txHash,
+        analysisKey: "",
+      };
+    }
 
     // Resolve dynamic analysisKey from request_counter
     if (!analysisKey) {
