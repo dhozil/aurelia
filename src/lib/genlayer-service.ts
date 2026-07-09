@@ -81,24 +81,32 @@ async function readContractFn(client: any, functionName: string, args: any[] = [
 /**
  * Extract the contract function return value from a TX receipt.
  * For UNDETERMINED/VALIDATORS_TIMEOUT the leader's execution result is still
- * available in consensus_data.leader_receipt[0].execution_result.
- * Contract functions return json.dumps(result) — a JSON string.
+ * available in the receipt. Contract functions return json.dumps(result).
+ * TX with leader rotation has multiple leader_receipt entries — check all.
  */
 function extractResultFromReceipt(receipt: any): string | undefined {
   try {
     const candidates: any[] = [];
 
-    // Candidate 1: leader's execution result (works for UNDETERMINED/VALIDATORS_TIMEOUT)
-    const leaderResult =
-      receipt?.consensus_data?.leader_receipt?.[0]?.execution_result;
-    if (leaderResult !== undefined && leaderResult !== null) {
-      candidates.push(leaderResult);
+    // Check ALL leader_receipts (TX with rotation has multiple)
+    const receipts: any[] = receipt?.consensus_data?.leader_receipt ?? [];
+    for (const r of receipts) {
+      for (const field of ["execution_result", "genvm_result", "result"]) {
+        const val = r[field];
+        if (val !== undefined && val !== null) candidates.push(val);
+      }
     }
 
-    // Candidate 2: top-level execution_result
+    // Top-level execution_result
     const execResult = receipt?.execution_result;
     if (execResult !== undefined && execResult !== null) {
       candidates.push(execResult);
+    }
+
+    // Top-level result
+    const topResult = receipt?.result;
+    if (topResult !== undefined && topResult !== null) {
+      candidates.push(topResult);
     }
 
     for (const val of candidates) {
@@ -168,7 +176,16 @@ async function waitForTxAcceptance(
   // Leader executed but validators disagreed/timed out — extract result from receipt
   if (HAS_RESULT.has(status)) {
     const directResult = extractResultFromReceipt(receipt);
-    console.log(`[Aurelia] TX ${status} — ${directResult ? "has direct result" : "no direct result"} — ${txHash}`);
+    if (!directResult) {
+      // Debug: log receipt keys to understand structure
+      const topKeys = Object.keys(receipt || {}).slice(0, 20);
+      const lr = (receipt?.consensus_data?.leader_receipt ?? []).map((r: any, i: number) =>
+        `${i}:${Object.keys(r).join(",")}`,
+      );
+      console.warn(`[Aurelia] TX ${status} — missing result. receipt keys: ${topKeys.join(",")}. leader_receipt: ${lr.join(" | ")}`);
+    } else {
+      console.log(`[Aurelia] TX ${status} — has direct result — ${txHash}`);
+    }
     return { status, receipt, directResult };
   }
 
@@ -185,7 +202,15 @@ async function waitForTxAcceptance(
       }
       if (HAS_RESULT.has(s)) {
         const directResult = extractResultFromReceipt(tx);
-        console.log(`[Aurelia] TX now ${s} — ${directResult ? "has direct result" : "no direct result"} — ${txHash}`);
+        if (!directResult) {
+          const topKeys = Object.keys(tx || {}).slice(0, 20);
+          const lr = (tx?.consensus_data?.leader_receipt ?? []).map((r: any, i: number) =>
+            `${i}:${Object.keys(r).join(",")}`,
+          );
+          console.warn(`[Aurelia] TX now ${s} — missing result. keys: ${topKeys.join(",")}. leader_receipt: ${lr.join(" | ")}`);
+        } else {
+          console.log(`[Aurelia] TX now ${s} — has direct result — ${txHash}`);
+        }
         return { status: s, receipt: tx, directResult };
       }
       if (s === "CANCELED") {
