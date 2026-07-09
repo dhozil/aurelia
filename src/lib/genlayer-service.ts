@@ -78,6 +78,55 @@ async function readContractFn(client: any, functionName: string, args: any[] = [
   return mapContractResult(result);
 }
 
+async function waitForTxAcceptance(
+  client: any,
+  txHash: string,
+  maxRetries = 60,
+  interval = 10000,
+): Promise<void> {
+  // SDK's waitForTransactionReceipt treats VALIDATORS_TIMEOUT/UNDETERMINED
+  // as "decided states" and returns early — but the TX may still progress to ACCEPTED.
+  // We use it as a first fast check, then fall back to our own polling.
+  let status: string;
+  try {
+    const receipt = await client.waitForTransactionReceipt({
+      hash: txHash,
+      retries: 10,
+      interval,
+    });
+    status = receipt.statusName || "";
+  } catch {
+    status = "PENDING";
+  }
+
+  if (status === "ACCEPTED" || status === "FINALIZED") return;
+
+  // TX hit a timeout state — it may still be processing.
+  // Poll getTransaction directly until true ACCEPTED/FINALIZED.
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  for (let i = 0; i < maxRetries; i++) {
+    await sleep(interval);
+    try {
+      const tx = await client.getTransaction({ hash: txHash });
+      const s = tx.statusName || String(tx.status);
+      if (s === "ACCEPTED" || s === "FINALIZED") {
+        console.log(`[Aurelia] TX now ${s}: ${txHash}`);
+        return;
+      }
+      if (s === "CANCELED") {
+        throw new Error(`Transaction ${txHash} was canceled`);
+      }
+      status = s;
+    } catch (e: any) {
+      if (e.message?.includes("canceled")) throw e;
+      console.warn(`[Aurelia] TX poll error: ${e.message}`);
+    }
+  }
+  throw new Error(
+    `Timed out waiting for ${txHash} to reach ACCEPTED (last status: ${status})`,
+  );
+}
+
 async function writeContractFn(
   client: any,
   functionName: string,
@@ -98,12 +147,7 @@ async function writeContractFn(
   console.log(`[Aurelia] TX submitted: ${txHash}`);
   console.log(`[Aurelia] Explorer: ${EXPLORER_URL}/tx/${txHash}`);
 
-  // Wait for ACCEPTED before returning — view functions need this
-  await client.waitForTransactionReceipt({
-    hash: txHash,
-    retries: 60,
-    interval: 10000,
-  });
+  await waitForTxAcceptance(client, txHash);
   console.log(`[Aurelia] TX accepted: ${txHash}`);
   return txHash;
 }
