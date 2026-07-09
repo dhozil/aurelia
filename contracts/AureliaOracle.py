@@ -98,15 +98,19 @@ class AureliaOracle(gl.Contract):
             if not isinstance(leader, gl.vm.Return):
                 return False
             mine = leader_fn()
-            l_pv = str(leader.calldata.get("portfolio_value_usd", ""))
-            v_pv = str(mine.get("portfolio_value_usd", ""))
             l_risk = str(leader.calldata.get("risk_level", ""))
             v_risk = str(mine.get("risk_level", ""))
-            l_cnt = int(leader.calldata.get("asset_count", 0))
-            v_cnt = int(mine.get("asset_count", 0))
             if l_risk != v_risk:
                 return False
-            if abs(l_cnt - v_cnt) > 5:
+            if l_risk not in ("Low", "Medium", "High"):
+                return False
+            l_cnt = int(leader.calldata.get("asset_count", 0))
+            v_cnt = int(mine.get("asset_count", 0))
+            if abs(l_cnt - v_cnt) > 2:
+                return False
+            l_pv = str(leader.calldata.get("portfolio_value_usd", ""))
+            v_pv = str(mine.get("portfolio_value_usd", ""))
+            if not l_pv or not v_pv:
                 return False
             return True
 
@@ -157,7 +161,17 @@ class AureliaOracle(gl.Contract):
             mine = leader_fn()
             l_score = int(leader.calldata.get("risk_score", 0))
             v_score = int(mine.get("risk_score", 0))
-            if abs(l_score - v_score) > 30:
+            if abs(l_score - v_score) > 15:
+                return False
+            if l_score < 0 or l_score > 100:
+                return False
+            l_safe = str(leader.calldata.get("safety_level", ""))
+            v_safe = str(mine.get("safety_level", ""))
+            if not l_safe or not v_safe:
+                return False
+            l_own = leader.calldata.get("ownership_renounced")
+            v_own = mine.get("ownership_renounced")
+            if isinstance(l_own, bool) and isinstance(v_own, bool) and l_own != v_own:
                 return False
             return True
 
@@ -207,7 +221,11 @@ class AureliaOracle(gl.Contract):
             mine = leader_fn()
             l_fn = int(len(leader.calldata.get("functions", [])))
             v_fn = int(len(mine.get("functions", [])))
-            if abs(l_fn - v_fn) > 5:
+            if abs(l_fn - v_fn) > 3:
+                return False
+            l_purpose = str(leader.calldata.get("overall_purpose", ""))
+            v_purpose = str(mine.get("overall_purpose", ""))
+            if len(l_purpose) < 20 or len(v_purpose) < 20:
                 return False
             return True
 
@@ -257,7 +275,17 @@ class AureliaOracle(gl.Contract):
             mine = leader_fn()
             l_score = int(leader.calldata.get("risk_score", 0))
             v_score = int(mine.get("risk_score", 0))
-            if abs(l_score - v_score) > 30:
+            if abs(l_score - v_score) > 15:
+                return False
+            if l_score < 0 or l_score > 100:
+                return False
+            l_risk = str(leader.calldata.get("risk_level", ""))
+            v_risk = str(mine.get("risk_level", ""))
+            if l_risk not in ("Low", "Medium", "High", "Critical"):
+                return False
+            if l_score >= 70 and l_risk == "Low":
+                return False
+            if l_score <= 30 and l_risk == "High":
                 return False
             return True
 
@@ -305,7 +333,11 @@ class AureliaOracle(gl.Contract):
             mine = leader_fn()
             l_rec = int(len(leader.calldata.get("recommendations", [])))
             v_rec = int(len(mine.get("recommendations", [])))
-            if abs(l_rec - v_rec) > 3:
+            if abs(l_rec - v_rec) > 2:
+                return False
+            l_sent = str(leader.calldata.get("market_sentiment", ""))
+            v_sent = str(mine.get("market_sentiment", ""))
+            if not l_sent or not v_sent:
                 return False
             return True
 
@@ -354,7 +386,15 @@ class AureliaOracle(gl.Contract):
             mine = leader_fn()
             l_changes = int(len(leader.calldata.get("key_changes", [])))
             v_changes = int(len(mine.get("key_changes", [])))
-            if abs(l_changes - v_changes) > 5:
+            if abs(l_changes - v_changes) > 3:
+                return False
+            l_summary = str(leader.calldata.get("proposal_summary", ""))
+            v_summary = str(mine.get("proposal_summary", ""))
+            if len(l_summary) < 30 or len(v_summary) < 30:
+                return False
+            l_risk = str(leader.calldata.get("risk_level", ""))
+            v_risk = str(mine.get("risk_level", ""))
+            if l_risk != v_risk:
                 return False
             return True
 
@@ -401,7 +441,13 @@ class AureliaOracle(gl.Contract):
             mine = leader_fn()
             l_score = int(leader.calldata.get("portfolio_score", 0))
             v_score = int(mine.get("portfolio_score", 0))
-            if abs(l_score - v_score) > 30:
+            if abs(l_score - v_score) > 15:
+                return False
+            if l_score < 0 or l_score > 100:
+                return False
+            l_val = str(leader.calldata.get("total_value_usd", ""))
+            v_val = str(mine.get("total_value_usd", ""))
+            if not l_val or not v_val:
                 return False
             return True
 
@@ -450,7 +496,13 @@ class AureliaOracle(gl.Contract):
             mine = leader_fn()
             l_changes = int(len(leader.calldata.get("key_changes", [])))
             v_changes = int(len(mine.get("key_changes", [])))
-            if abs(l_changes - v_changes) > 5:
+            if abs(l_changes - v_changes) > 3:
+                return False
+            l_comp = leader.calldata.get("comparison", {})
+            v_comp = mine.get("comparison", {})
+            if not isinstance(l_comp, dict) or not isinstance(v_comp, dict):
+                return False
+            if len(str(l_comp)) < 20 or len(str(v_comp)) < 20:
                 return False
             return True
 
@@ -501,6 +553,17 @@ class AureliaOracle(gl.Contract):
             l_ans = str(leader.calldata.get("answer", ""))
             v_ans = str(mine.get("answer", ""))
             if len(l_ans) < 10 or len(v_ans) < 10:
+                return False
+            l_topics = leader.calldata.get("topics", [])
+            v_topics = mine.get("topics", [])
+            if isinstance(l_topics, list) and isinstance(v_topics, list):
+                l_set = set(t.lower() if isinstance(t, str) else str(t) for t in l_topics)
+                v_set = set(t.lower() if isinstance(t, str) else str(t) for t in v_topics)
+                if len(l_set & v_set) == 0:
+                    return False
+            l_conf = str(leader.calldata.get("confidence", "")).lower()
+            v_conf = str(mine.get("confidence", "")).lower()
+            if l_conf not in ("high", "medium", "low") or v_conf not in ("high", "medium", "low"):
                 return False
             return True
 

@@ -1,7 +1,7 @@
 import { createClient } from "genlayer-js";
 import { testnetBradbury } from "genlayer-js/chains";
 
-const DEPLOYED_CONTRACT_ADDRESS = "0x5598809D8B2D103B9488525a624D496918C0D0c4";
+const DEPLOYED_CONTRACT_ADDRESS = "0x73a017D6C51cb3a231097d1d5e6309FA4339F17c";
 const EXPLORER_URL = "https://explorer-bradbury.genlayer.com";
 
 // ── Wallet Provider ──────────────────────────────────────────────────────────
