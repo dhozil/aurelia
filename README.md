@@ -105,7 +105,7 @@ Aurelia answers — powered by **GenLayer AI Consensus**, where every response i
 | **RPC** | `https://rpc-bradbury.genlayer.com` |
 | **Language** | Python (GenVM) |
 | **Consensus** | AI Consensus (Optimistic Democracy) |
-| **Contract** | `0xcA051b8e6938291ecadC0fA23197c7feF6cfcbe9` |
+| **Contract** | `0xa5DaebB4B7d4562bBf3923A5bE895f0d6f5c737C` |
 
 ---
 
@@ -199,7 +199,7 @@ const client = createClient({ chain: testnetBradbury });
 
 // Write — triggers AI consensus
 const txHash = await client.writeContract({
-  address: "0xcA051b8e6938291ecadC0fA23197c7feF6cfcbe9",
+  address: "0xa5DaebB4B7d4562bBf3923A5bE895f0d6f5c737C",
   functionName: "analyze_token",
   args: ["0x..."],
 });
