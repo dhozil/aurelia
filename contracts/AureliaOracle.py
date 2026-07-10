@@ -526,9 +526,12 @@ class AureliaOracle(gl.Contract):
     def ask_genlayer(self, query: str) -> str:
         """Answer any blockchain question - general Q&A"""
         key = "chat_" + str(self.request_counter)
+        try:
+            now = gl.message_raw["datetime"]
+        except:
+            now = "current date unknown"
 
         def build_prompt() -> str:
-            now = gl.message_raw.get("datetime", "current date unknown")
             return (
                 f"You are Aurelia, an AI Oracle specialized in blockchain and cryptocurrency. "
                 f"Current date and time: {now}\n\n"
